@@ -3,6 +3,11 @@ const bcrypt = require("bcryptjs");
 
 const UserSchema = new mongoose.Schema(
   {
+    userId:{
+      type: Number,
+      unique: true,
+      index: true
+    },
     name: {
       type: String,
       required: true,
@@ -79,6 +84,22 @@ const UserSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    userType:{
+      type:String,
+      enum:["free", "paid"],
+      default: "free"
+    },
+    status: {
+      type: String,
+      enum:["active", "inactive"],
+      default: "active",
+    },
+    accountType: {
+    type: String,
+    enum: ["private", "company"],
+    default: "private"
+   },
+
   },
   {
     timestamps: true,
@@ -112,5 +133,25 @@ UserSchema.methods.toJSON = function () {
   delete user.resetPasswordToken;
   return user;
 };
+
+const Counter = require("./counter");
+
+UserSchema.pre("save", async function (next) {
+  if (!this.isNew) return next();
+
+  try {
+    const counter = await Counter.findOneAndUpdate(
+      { id: "userId" },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+
+    this.userId = counter.seq;
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 module.exports = mongoose.model("User", UserSchema);

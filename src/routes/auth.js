@@ -17,7 +17,7 @@ const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 // Register endpoint
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, mobile, password } = req.body;
+    const { name, email, mobile, password, profilePicture } = req.body;
 
     // Validation
     if (!name || !email || !mobile || !password) {
@@ -77,6 +77,7 @@ router.post('/register', async (req, res) => {
       email: email.toLowerCase(),
       mobile,
       password,
+      profilePicture: profilePicture,
       verificationToken: token,
       verificationExpires: expires
     });
@@ -117,53 +118,53 @@ router.post('/register', async (req, res) => {
 
 
 // Verify email endpoint
-router.get('/verify-email', async (req, res) => {
-  try {
-    const { token } = req.query;
+// router.get('/verify-email', async (req, res) => {
+//   try {
+//     const { token } = req.query;
 
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: 'Verification token is required',
-        toastMessage: 'Verification token missing'
-      });
-    }
+//     if (!token) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Verification token is required',
+//         toastMessage: 'Verification token missing'
+//       });
+//     }
 
-    // Find user with this token
-    const user = await User.findOne({
-      verificationToken: token,
-      verificationExpires: { $gt: new Date() }
-    });
+//     // Find user with this token
+//     const user = await User.findOne({
+//       verificationToken: token,
+//       verificationExpires: { $gt: new Date() }
+//     });
 
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid or expired verification token',
-        toastMessage: 'Invalid or expired token'
-      });
-    }
+//     if (!user) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid or expired verification token',
+//         toastMessage: 'Invalid or expired token'
+//       });
+//     }
 
-    // Update user as verified
-    user.verified = true;
-    user.verificationToken = null;
-    user.verificationExpires = null;
-    await user.save();
+//     // Update user as verified
+//     user.verified = true;
+//     user.verificationToken = null;
+//     user.verificationExpires = null;
+//     await user.save();
 
-    res.json({
-      success: true,
-      message: 'Email verified successfully. You can now log in.',
-      toastMessage: 'Email verified successfully!'
-    });
+//     res.json({
+//       success: true,
+//       message: 'Email verified successfully. You can now log in.',
+//       toastMessage: 'Email verified successfully!'
+//     });
 
-  } catch (error) {
-    console.error('Email verification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error during email verification',
-      toastMessage: 'Internal error occurred'
-    });
-  }
-});
+//   } catch (error) {
+//     console.error('Email verification error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Internal server error during email verification',
+//       toastMessage: 'Internal error occurred'
+//     });
+//   }
+// });
 
 
 // Login endpoint
@@ -704,6 +705,46 @@ router.post('/test-google-token-dev', async (req, res) => {
       message: 'Failed to decode token',
       error: error.message
     });
+  }
+});
+
+// routes/auth.js
+// REPLACE the existing router.get('/verify-email'...) at ~Line 120 with this:
+
+router.get('/verify-email', async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) return res.status(400).send("<h1>Error: Token is missing</h1>");
+
+    // Find user with this token AND ensure it hasn't expired
+    const user = await User.findOne({
+      verificationToken: token,
+      verificationExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).send("<h1 style='color:red'>Link is Invalid or Expired</h1>");
+    }
+
+    // Update user as verified
+    user.verified = true;
+    user.verificationToken = null;
+    user.verificationExpires = null;
+    await user.save();
+
+    // ✅ Return HTML so it looks good on the phone
+    res.send(`
+      <div style="text-align:center; padding:40px; font-family:sans-serif;">
+        <h1 style="color:green; font-size:30px;">✅ Email Verified!</h1>
+        <p style="font-size:18px; color:#555;">Your account is now active.</p>
+        <p style="font-size:18px;">Please return to the app and login.</p>
+      </div>
+    `);
+
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(500).send("<h1>Server Error</h1>");
   }
 });
 

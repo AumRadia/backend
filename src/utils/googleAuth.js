@@ -1,17 +1,17 @@
 const { OAuth2Client } = require('google-auth-library');
 
 // Initialize Google OAuth client
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || '407408718192.apps.googleusercontent.com');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || '684725372087-9018mjvp79oq4u1u74u249lm7lt2t8cd.apps.googleusercontent.com');
 
 // Verify Google ID token
 const verifyGoogleToken = async (idToken) => {
   try {
     console.log('🔍 Verifying Google ID token...');
-    console.log('📋 Using Client ID:', process.env.GOOGLE_CLIENT_ID || '407408718192.apps.googleusercontent.com');
+    console.log('📋 Using Client ID:', process.env.GOOGLE_CLIENT_ID || '684725372087-9018mjvp79oq4u1u74u249lm7lt2t8cd.apps.googleusercontent.com');
     
     const ticket = await client.verifyIdToken({
       idToken: idToken,
-      audience: process.env.GOOGLE_CLIENT_ID || '407408718192.apps.googleusercontent.com'
+      audience: process.env.GOOGLE_CLIENT_ID || '684725372087-9018mjvp79oq4u1u74u249lm7lt2t8cd.apps.googleusercontent.com'
     });
     
     const payload = ticket.getPayload();
