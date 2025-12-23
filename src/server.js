@@ -1,3 +1,5 @@
+const MELO_PYTHON_PATH = "C:\\Users\\AUM\\melotts-env\\Scripts\\python.exe";
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -6,16 +8,31 @@ const { connectToDatabase } = require("./db");
 const Visit = require("./models/Visit");
 const https = require("https");
 const myAiRoutes = require("./myAI/index");
+const { spawn } = require('child_process'); // <--- NEW IMPORT
+const path = require('path');               // <--- NEW IMPORT
 
 // Import auth routes
 const authRoutes = require("./routes/auth");
+const User = require("./models/User"); // Ensure path matches where User.js is located
+
+const conversionRoutes = require("./routes/conversionRoutes");
+const Counter = require("./models/counter");
+const interactionRoutes = require("./routes/interactions");
+const newsRoutes = require("./routes/newsRoutes");
+const deepfakeRoutes = require("./routes/DeepfakeRoutes");
+const gdprRoutes = require("./routes/gdprRoutes")
+const safetyRoutes = require("./routes/safetyRoutes");
 
 //Telegram Route
 const telegramRoutes = require("./telegramAPI/index");
-
+const whisperRoutes = require("./routes/whisperRoute");
 const usersRouter = require("./users");
 const visitsRoutes = require("./visits");
 const widgetRoutes = require('./widgets');
+const plagiarismRoutes = require("./routes/plagiarism");
+const imageSearchRoutes = require("./routes/imageSearch");
+const ttsRoutes = require("./routes/ttsRoutes");
+const pythonTtsRoutes = require("./routes/pythonTtsRoutes");
 
 const app = express();
 
@@ -126,8 +143,58 @@ async function getIPLocation(ip) {
 }
 
 app.set("trust proxy", true);
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(morgan("combined"));
+
+// ==========================================
+// NEW: COSYVOICE ROUTE (Direct Python Execution)
+// ==========================================
+app.post('/api/tts/cosyvoice', (req, res) => {
+    const { text, voice, speed } = req.body;
+
+    if (!text) return res.status(400).json({ error: "Text is required" });
+
+    // Defaults
+    const voiceParam = voice || "af_heart";
+    const speedParam = speed || 1.0;
+
+    console.log(`🎤 Spawning Python for: "${text}"...`);
+
+    // Spawn Python Process
+    // Looking for file in: src/controllers/cosyvoice_cli.py
+    const pythonProcess = spawn(MELO_PYTHON_PATH, [ // Use the full path defined at line 1
+    path.join(__dirname, 'controllers', 'cosyvoice_cli.py'), 
+    text,
+    voiceParam,
+    speedParam
+]);
+
+    // Set Response Headers
+    res.set({
+        'Content-Type': 'audio/wav',
+    });
+
+    // Pipe Python's "Standard Output" directly to the Response
+    pythonProcess.stdout.pipe(res);
+
+    // Error Handling
+    pythonProcess.stderr.on('data', (data) => {
+        console.error(`Python Error: ${data}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+        if (code !== 0) {
+            console.log(`Python process exited with code ${code}`);
+            // Check if headers already sent to avoid crashing node
+            if (!res.headersSent) res.status(500).send("Generation failed.");
+        } else {
+            console.log("✅ Audio generation complete.");
+        }
+    });
+});
+// ==========================================
+
 
 // Routes
 app.use("/api/auth", authRoutes);
@@ -136,10 +203,23 @@ app.use("/api/telegram", telegramRoutes);
 app.use("/api/users", usersRouter);
 app.use("/api/visits", visitsRoutes);
 app.use('/api/widgets', widgetRoutes);
+app.use('/api/interactions', interactionRoutes);
+app.use('/api/news', newsRoutes);
+app.use('/api/deepfake', deepfakeRoutes);
+app.use('/api/gdpr', gdprRoutes);
+app.use("/api/plagiarism", plagiarismRoutes);
+app.use("/api/safety", safetyRoutes);
+app.use("/api/image-search", imageSearchRoutes);
+app.use("/api", conversionRoutes);
+app.use(whisperRoutes);
+app.use("/api/tts", ttsRoutes);
+app.use("/api/python-tts", pythonTtsRoutes);
 
-app.get("/health", (req, res) => {
-  res.json({ ok: true });
-});
+// UPDATED ROUTE: Checks permissions before saving input
+// ... existing imports ...
+
+// UPDATED ROUTE: With Debug Logs
+
 
 // Test endpoint to check IP geolocation
 app.get("/api/test-ip/:ip", async (req, res) => {
@@ -234,6 +314,7 @@ app.get("/api/track", async (req, res) => {
   }
 });
 
+
 app.post("/api/track", async (req, res) => {
   try {
     const rawIP =
@@ -272,6 +353,7 @@ connectToDatabase()
   .then(() => {
     app.listen(port, () => {
       /* server started */
+      console.log(`Server running on port ${port}`); // Added log so you know it started
     });
   })
   .catch(() => {

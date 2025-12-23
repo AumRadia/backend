@@ -1,4 +1,30 @@
-node_modules
-dist
+# Env
 .env
 
+# Node
+node_modules/
+
+# Audio / generated
+*.mp3
+*.wav
+*.ogg
+audio_*
+whisper_*
+
+# Speech / ML models
+src/speechtts/
+src/CosyVoice_Code/
+*.pt
+*.bin
+*.onnx
+*.safetensors
+
+# Logs / temp
+logs/
+*.log
+tmp/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db

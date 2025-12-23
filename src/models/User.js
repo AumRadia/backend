@@ -1,9 +1,10 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const Counter = require("./counter"); // Ensure this path is correct based on your file structure
 
 const UserSchema = new mongoose.Schema(
   {
-    userId:{
+    userId: {
       type: Number,
       unique: true,
       index: true
@@ -29,26 +30,21 @@ const UserSchema = new mongoose.Schema(
     mobile: {
       type: String,
       required: function () {
-        return !this.googleId; // Mobile required only if not Google user
+        return !this.googleId;
       },
       trim: true,
-      match: [
-        /^[6-9]\d{9}$/,
-        "Please enter a valid 10-digit mobile number starting with 6-9",
-      ],
     },
     password: {
       type: String,
       required: function () {
-        return !this.googleId; // Password required only if not Google user
+        return !this.googleId;
       },
       minlength: 8,
     },
-    // Google OAuth fields
     googleId: {
       type: String,
       unique: true,
-      sparse: true, // Allows null values but ensures uniqueness when present
+      sparse: true,
     },
     googleEmail: {
       type: String,
@@ -84,22 +80,30 @@ const UserSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-    userType:{
-      type:String,
-      enum:["free", "paid"],
+    userType: {
+      type: String,
+      enum: ["free", "paid"],
       default: "free"
     },
     status: {
       type: String,
-      enum:["active", "inactive"],
-      default: "active",
+      enum: ["active", "inactive"],
+      default: "active", // Default is active
     },
     accountType: {
-    type: String,
-    enum: ["private", "company"],
-    default: "private"
-   },
-
+      type: String,
+      enum: ["private", "company", "NGO"], // Updated to include NGO
+      default: "private"
+    },
+    tokens: {
+      type: Number,
+      default: 0
+    },
+    // ADDED: Balance field
+    balance: {
+      type: Number,
+      default: 0
+    }
   },
   {
     timestamps: true,
@@ -110,7 +114,6 @@ const UserSchema = new mongoose.Schema(
 // Hash password before saving
 UserSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-
   try {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
@@ -134,24 +137,19 @@ UserSchema.methods.toJSON = function () {
   return user;
 };
 
-const Counter = require("./counter");
-
 UserSchema.pre("save", async function (next) {
   if (!this.isNew) return next();
-
   try {
     const counter = await Counter.findOneAndUpdate(
       { id: "userId" },
       { $inc: { seq: 1 } },
       { new: true, upsert: true }
     );
-
     this.userId = counter.seq;
     next();
   } catch (err) {
     next(err);
   }
 });
-
 
 module.exports = mongoose.model("User", UserSchema);
